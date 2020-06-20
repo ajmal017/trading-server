@@ -11,6 +11,7 @@ Some rights reserved. See LICENSE.md, AUTHORS.md.
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+import os
 
 
 class Exchange(ABC):
@@ -19,7 +20,7 @@ class Exchange(ABC):
     """
 
     def __init__(self):
-        super.__init__()
+        pass
 
     def get_new_bars(self):
         """
@@ -209,6 +210,153 @@ class Exchange(ABC):
     def finished_parsing_ticks(self):
         return self.finished_parsing_ticks
 
+    def load_api_keys(self):
+        """
+        Loads key and secret from environment variables.
+
+        Keys must be stored as follows (all capitalised):
+        API key:    VENUE_NAME_API_KEY
+        API secret: VENUE_NAME_SECRET_KEY
+
+        Args:
+            None.
+
+        Returns:
+            key: api key matching exchange name.
+            secret: api secret key matching venue name.
+
+        Raises:
+            None.
+        """
+
+        venue_name = self.get_name().upper()
+        key = os.environ[venue_name + '_API_KEY']
+        secret = os.environ[venue_name + '_API_SECRET']
+
+        return key, secret
+
+    def round_increment(self, number, symbol):
+        """
+        Round a given number to its nearest minimum increment
+        """
+
+        inc = self.symbol_min_increment[symbol]
+
+        if number < 1:
+            quote = number
+        else:
+            quote = (number // inc) * inc
+
+        # print("Rounded quote:", quote)
+        return quote
+
+
+    @abstractmethod
+    def place_bulk_orders(self, orders: list):
+        """
+        Given a list of order events objects, place corresponding orders with
+        the respective trading venue.
+
+        Args:
+            orders: list of order objects
+
+        Returns:
+
+        Raises:
+
+        """
+
+    @abstractmethod
+    def place_single_order(self, order):
+        """
+        Place a single order with the respective trading venue.
+
+        Args:
+            order: order object
+
+        Returns:
+
+        Raises:
+
+        """
+
+    @abstractmethod
+    def cancel_orders(self, order_ids: list):
+        """
+        Cancel all orders matching list of given order IDs.
+
+        Args:
+            orders: list of orders.
+
+        Returns:
+            cancel_status: dict, {order_id: cancel succcess/fail message}
+
+        Raises:
+
+        """
+
+    @abstractmethod
+    def close_position(self, symbol, qty, direction):
+        """
+        Close 'qty' units of 'symbol' instrument in 'direction' direction.
+
+        Args:
+            symbol: instrument symbol to close.
+            qty: number of units of instrument to close.
+            direction: LONG or SHORT
+
+        Returns:
+            True if successful close, False if not.
+        Raises:
+
+        """
+
+    @abstractmethod
+    def format_orders(self, orders: list):
+        """
+        Converts internally formatted orders into relevant venue order format.
+
+        Args:
+            orders: list of order objects
+
+        Returns:
+            formatted_orders: new list of venue-appropirate formatted orders
+
+        Raises:
+
+        """
+
+    @abstractmethod
+    def get_executions(self, symbol, start_timestamp, count):
+        """
+        Args:
+            symbol: instrument ticker code (string)
+            start_timestamp: epoch timestamp (int)
+            count: amount of results to fetch (int)
+
+        Returns:
+            List of balance-affecting executions for the given symbol.
+            Each execution should be a dict with the following format:
+                {
+                    'order_id': ???,
+                    'venue_id': ???,
+                    'timestamp': ???,       epooch timestamp (int)
+                    'avg_exc_price': ???,
+                    'currency': ???,
+                    'symbol': ???,
+                    'direction': ???,       LONG or SHORT
+                    'size': ???,
+                    'order_type': ???,
+                    'fee_type': ???,
+                    'fee_amt': ???,         multiplicand to find total fee cost
+                    'total_fee': ???,       fees charged for transaction in USD
+                    'status' ???:           FILLED, CANCELLED, NEW, PARTIAL
+                }
+
+        Raises:
+            None.
+        """
+
     @abstractmethod
     def get_bars_in_period(self, symbol: str, start_time: int, total: int):
         """
@@ -276,6 +424,35 @@ class Exchange(ABC):
         Returns:
             Converts streamed websocket tick data into a 1-min OHLCV bars, then
             appends new bars to the exchange object self.bars[symbol] tree.
+
+        Raises:
+            None.
+        """
+
+    @abstractmethod
+    def get_position(self, symbol):
+        """
+        Args:
+            symbol:  Instrument ticker code (string).
+
+        Returns:
+            Position dict for the specified symbol.
+
+        Raises:
+            None.
+        """
+
+    @abstractmethod
+    def get_orders(self, symbol):
+        """
+        Final versions of this method in subclasses should only return orders
+        placed by this program. Fetch only orders with venue ids.
+
+        Args:
+            symbol: Instrument ticker code (string).
+
+        Returns:
+            List containing all active and inactive orders for symbol.
 
         Raises:
             None.
